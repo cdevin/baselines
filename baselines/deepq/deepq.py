@@ -5,6 +5,7 @@ import tensorflow as tf
 import zipfile
 import cloudpickle
 import numpy as np
+import os.path as osp
 
 import baselines.common.tf_util as U
 from baselines.common.tf_util import load_variables, save_variables
@@ -102,9 +103,9 @@ def learn(env,
           exploration_final_eps=0.02,
           train_freq=1,
           batch_size=32,
-          print_freq=100,
-          checkpoint_freq=10000,
-          checkpoint_path=None,
+          log_interval=10,
+          checkpoint_freq=100,
+          save_path=None,
           learning_starts=1000,
           gamma=1.0,
           target_network_update_freq=500,
@@ -144,7 +145,7 @@ def learn(env,
         update the model every `train_freq` steps.
     batch_size: int
         size of a batch sampled from replay buffer for training
-    print_freq: int
+    log_interval: int
         how often to print out training progress
         set to None to disable printing
     checkpoint_freq: int
@@ -185,7 +186,6 @@ def learn(env,
         See header of baselines/deepq/categorical.py for details on the act function.
     """
     # Create all the functions necessary to train the model
-
     sess = get_session()
     set_global_seeds(seed)
 
@@ -240,9 +240,10 @@ def learn(env,
     saved_mean_reward = None
     obs = env.reset()
     reset = True
-
+    save_path = osp.join(logger.get_dir(), 'checkpoints')
+    print("Started")
     with tempfile.TemporaryDirectory() as td:
-        td = checkpoint_path or td
+        td = save_path or td
 
         model_file = os.path.join(td, "model")
         model_saved = False
@@ -308,24 +309,27 @@ def learn(env,
 
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             num_episodes = len(episode_rewards)
-            if done and print_freq is not None and len(episode_rewards) % print_freq == 0:
+            if done and log_interval is not None and len(episode_rewards) % log_interval == 0:
                 logger.record_tabular("steps", t)
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
+            #print("checkpoint_freq", checkpoint_freq, "t", t, "num_episodes", num_episodes)
             if (checkpoint_freq is not None and t > learning_starts and
-                    num_episodes > 100 and t % checkpoint_freq == 0):
+                    num_episodes > 1 and num_episodes % checkpoint_freq == 0):
+                #print("saved_mean_reward",saved_mean_reward, "mean_100ep_reward", mean_100ep_reward)
                 if saved_mean_reward is None or mean_100ep_reward > saved_mean_reward:
-                    if print_freq is not None:
+                    if log_interval is not None:
                         logger.log("Saving model due to mean reward increase: {} -> {}".format(
                                    saved_mean_reward, mean_100ep_reward))
+                    print("Saved, ", model_file)
                     save_variables(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
         if model_saved:
-            if print_freq is not None:
+            if log_interval is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
             load_variables(model_file)
 

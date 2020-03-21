@@ -23,3 +23,23 @@ def atari():
 
 def retro():
     return atari()
+
+def crafting_env():
+    return dict(
+        nsteps=128, nminibatches=4,
+        lam=0.95, gamma=0.99, noptepochs=4, log_interval=10,
+        ent_coef=.01,
+        lr=lambda f : f * 2.5e-4,
+        cliprange=0.1,
+        save_interval=10
+    )
+
+def grasping_envs():
+    return dict(
+        nsteps=128, nminibatches=4,
+        lam=0.95, gamma=0.99, noptepochs=4, log_interval=10,
+        ent_coef=.01,
+        lr=lambda f : f * 2.5e-4,
+        cliprange=0.1,
+        save_interval=50
+    )

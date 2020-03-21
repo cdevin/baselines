@@ -6,14 +6,31 @@ def atari():
         exploration_fraction=0.1,
         exploration_final_eps=0.01,
         train_freq=4,
-        learning_starts=10000,
+        learning_starts=1000,
         target_network_update_freq=1000,
         gamma=0.99,
         prioritized_replay=True,
         prioritized_replay_alpha=0.6,
-        checkpoint_freq=10000,
-        checkpoint_path=None,
+        checkpoint_freq=100,
         dueling=True
+    )
+
+def crafting_env():
+    return dict(
+        network='conv_only',
+        lr=1e-4,
+        buffer_size=10000,
+        exploration_fraction=0.1,
+        exploration_final_eps=0.01,
+        train_freq=4,
+        learning_starts=1000,
+        target_network_update_freq=1000,
+        gamma=0.99,
+        prioritized_replay=True,
+        prioritized_replay_alpha=0.6,
+        checkpoint_freq=10,
+        dueling=True,
+        log_interval=10,
     )
 
 def retro():

@@ -28,6 +28,14 @@ try:
     import roboschool
 except ImportError:
     roboschool = None
+    
+try:
+    from softlearning.environments.adapters.gym_adapter import (
+    GymAdapter, CUSTOM_GYM_ENVIRONMENTS)
+    print("Imported gym from soft")
+except ImportError:
+    soft = None
+       
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
@@ -51,6 +59,7 @@ _game_envs['retro'] = {
 
 
 def train(args, extra_args):
+    print("Train function")
     env_type, env_id = get_env_type(args)
     print('env_type: {}'.format(env_type))
 
@@ -60,7 +69,7 @@ def train(args, extra_args):
     learn = get_learn_function(args.alg)
     alg_kwargs = get_learn_function_defaults(args.alg, env_type)
     alg_kwargs.update(extra_args)
-
+    
     env = build_env(args)
     if args.save_video_interval != 0:
         env = VecVideoRecorder(env, osp.join(logger.get_dir(), "videos"), record_video_trigger=lambda x: x % args.save_video_interval == 0, video_length=args.save_video_length)
@@ -72,7 +81,7 @@ def train(args, extra_args):
             alg_kwargs['network'] = get_default_network(env_type)
 
     print('Training {} on {}:{} with arguments \n{}'.format(args.alg, env_type, env_id, alg_kwargs))
-
+    #import pdb; pdb.set_trace()
     model = learn(
         env=env,
         seed=seed,
@@ -91,14 +100,15 @@ def build_env(args):
     seed = args.seed
 
     env_type, env_id = get_env_type(args)
-
-    if env_type in {'atari', 'retro'}:
+    if env_type in {'atari', 'retro', 'crafting_env', 'grasping_envs'}:
         if alg == 'deepq':
             env = make_env(env_id, env_type, seed=seed, wrapper_kwargs={'frame_stack': True})
         elif alg == 'trpo_mpi':
             env = make_env(env_id, env_type, seed=seed)
         else:
             frame_stack_size = 4
+            if env_type == 'grasping_envs':
+                frame_stack_size = 1
             env = make_vec_env(env_id, env_type, nenv, seed, gamestate=args.gamestate, reward_scale=args.reward_scale)
             env = VecFrameStack(env, frame_stack_size)
 
@@ -148,6 +158,8 @@ def get_env_type(args):
 def get_default_network(env_type):
     if env_type in {'atari', 'retro'}:
         return 'cnn'
+    elif env_type in {'crafting_env', 'grasping_envs'}:
+        return 'cnn_small'
     else:
         return 'mlp'
 
@@ -201,11 +213,11 @@ def configure_logger(log_path, **kwargs):
 
 def main(args):
     # configure logger, disable logging in child MPI processes (with rank > 0)
-
+    print("Hello")
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args(args)
     extra_args = parse_cmdline_kwargs(unknown_args)
-
+    print("arsg", args, "extra_args", extra_args)
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
         configure_logger(args.log_path)
@@ -232,7 +244,6 @@ def main(args):
                 actions, _, state, _ = model.step(obs,S=state, M=dones)
             else:
                 actions, _, _, _ = model.step(obs)
-
             obs, rew, done, _ = env.step(actions)
             episode_rew += rew
             env.render()
@@ -241,6 +252,7 @@ def main(args):
                 for i in np.nonzero(done)[0]:
                     print('episode_rew={}'.format(episode_rew[i]))
                     episode_rew[i] = 0
+                env.reset()
 
     env.close()
 
